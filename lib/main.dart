@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:reader_app/model/bookmark.dart';
+import 'package:reader_app/bookmark_helper.dart';
 import 'package:reader_app/model/scroll.dart';
 import 'package:reader_app/user_settings.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -27,9 +27,12 @@ class WebViewExample extends StatefulWidget {
 
 class _WebViewExampleState extends State<WebViewExample> {
   late final WebViewController controller;
-  SharedPreferences? prefs;
+  late final SharedPreferences prefs;
+  late final BookmarkHelper bookmarkHelper;
   Scroll? scroll;
   bool playing = false;
+  bool showAppBar = true;
+  bool activeScrollListener = true;
 
   void loadRequest(String uri) {
     controller.loadRequest(Uri.parse(uri));
@@ -77,33 +80,48 @@ class _WebViewExampleState extends State<WebViewExample> {
       SharedPreferences.getInstance().then((prefs) {
         setState(() {
           this.prefs = prefs;
+          bookmarkHelper = BookmarkHelper(controller, prefs);
           scroll = Scroll(prefs);
         });
       });
     }
   }
 
-  // #docregion webview_widget
+  void reload() {
+    controller.reload();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: WebViewWidget(controller: controller),
-      appBar: AppBar(
-        title: const Text('Reader'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search),
-            onPressed: () {
-              controller.loadRequest(Uri.parse('https://www.google.com/'));
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              controller.reload();
-            },
-          ),
-        ],
+      body: SafeArea(
+        child: Column(
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              height: showAppBar ? 56 : 0,
+              child: AppBar(
+                title: const Text('Reader'),
+                elevation: 10,
+                backgroundColor: Colors.white70,
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.search),
+                    onPressed: () {
+                      controller
+                          .loadRequest(Uri.parse('https://www.google.com/'));
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.refresh),
+                    onPressed: reload,
+                  ),
+                ],
+              ),
+            ),
+            Expanded(child: WebViewWidget(controller: controller)),
+          ],
+        ),
       ),
       drawer: Drawer(
         child: ListView(
@@ -112,66 +130,21 @@ class _WebViewExampleState extends State<WebViewExample> {
               title: const Text('Open Bookmark'),
               onTap: () {
                 Navigator.pop(context);
-                showDialog(
-                  context: context,
-                  builder: (dialogContext) {
-                    final List<String> data =
-                        prefs?.getStringList('bookmarks') ?? <String>[];
-                    final List<Bookmark> bookmarks =
-                        data.map((e) => Bookmark.fromString(e)).toList();
-                    return AlertDialog(
-                      title: const Text('Bookmarks'),
-                      content: SizedBox(
-                        width: double.maxFinite,
-                        height: 300,
-                        child: ListView.builder(
-                          itemCount: bookmarks.length,
-                          itemBuilder: (context, index) {
-                            final bookmark = bookmarks[index];
-                            return ListTile(
-                              title: Text(bookmark.title),
-                              subtitle: Text(bookmark.url),
-                              onTap: () {
-                                loadRequest(bookmark.url);
-                                Navigator.pop(dialogContext);
-                              },
-                            );
-                          },
-                        ),
-                      ),
-                    );
-                  },
-                );
+                bookmarkHelper.openBookmark(context);
               },
             ),
             ListTile(
               title: const Text('Add Bookmark'),
-              onTap: () async {
+              onTap: () {
                 Navigator.pop(context);
-                if (prefs == null) return;
-                final List<String> data =
-                    prefs?.getStringList('bookmarks') ?? <String>[];
-                final String title = await controller.getTitle() ?? 'Untitled';
-                final String url = await controller.currentUrl() ?? '';
-                final bookmark = Bookmark(title, url);
-                if (data.contains(bookmark.toString())) return;
-                data.add(bookmark.toString());
-                prefs?.setStringList('bookmarks', data);
+                bookmarkHelper.addBookmark(context);
               },
             ),
             ListTile(
               title: const Text('Remove Bookmark'),
-              onTap: () async {
+              onTap: () {
                 Navigator.pop(context);
-                if (prefs == null) return;
-                final List<String> data =
-                    prefs?.getStringList('bookmarks') ?? <String>[];
-                final String title = await controller.getTitle() ?? 'Untitled';
-                final String url = await controller.currentUrl() ?? '';
-                final bookmark = Bookmark(title, url);
-                if (!data.contains(bookmark.toString())) return;
-                data.remove(bookmark.toString());
-                prefs?.setStringList('bookmarks', data);
+                bookmarkHelper.removeBookmark(context);
               },
             ),
             ListTile(
@@ -206,6 +179,7 @@ class _WebViewExampleState extends State<WebViewExample> {
         child: Icon(playing ? Icons.pause : Icons.play_arrow),
         onPressed: () => setState(() {
           playing = !playing;
+          showAppBar = !playing;
           if (playing) {
             scrolling();
           }
@@ -213,5 +187,4 @@ class _WebViewExampleState extends State<WebViewExample> {
       ),
     );
   }
-  // #enddocregion webview_widget
 }
