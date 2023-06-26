@@ -1,3 +1,5 @@
-# reader_app
+# Auto Scroll Reader App
 
-A new Flutter project.
+## Description
+
+This is a simple app that includes webview, and a button to start auto scroll. The app is written in Flutter.
