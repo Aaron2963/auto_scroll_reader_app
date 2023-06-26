@@ -50,6 +50,45 @@ class _WebViewExampleState extends State<WebViewExample> {
     Future.delayed(Duration(milliseconds: scroll!.interval), scrolling);
   }
 
+  void reload() {
+    controller.reload();
+  }
+
+  void showUriInput(BuildContext context) async {
+    final String? url = await showDialog<String?>(
+      context: context,
+      builder: (dialogContext) {
+        final TextEditingController inputCtrl = TextEditingController();
+        return AlertDialog(
+          title: const Text('輸入 URL'),
+          content: TextField(
+            controller: inputCtrl,
+            decoration: const InputDecoration(
+              labelText: 'URL',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+              },
+              child: const Text('取消'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext, inputCtrl.text);
+              },
+              child: const Text('前往'),
+            ),
+          ],
+        );
+      },
+    );
+    if (url != null) {
+      controller.loadRequest(Uri.parse(url));
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -74,7 +113,7 @@ class _WebViewExampleState extends State<WebViewExample> {
           },
         ),
       )
-      ..loadRequest(Uri.parse('https://flutter.dev'));
+      ..loadRequest(Uri.parse('https://www.google.com/'));
 
     if (scroll == null) {
       SharedPreferences.getInstance().then((prefs) {
@@ -87,10 +126,6 @@ class _WebViewExampleState extends State<WebViewExample> {
     }
   }
 
-  void reload() {
-    controller.reload();
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -101,20 +136,16 @@ class _WebViewExampleState extends State<WebViewExample> {
               duration: const Duration(milliseconds: 200),
               height: showAppBar ? 56 : 0,
               child: AppBar(
-                title: const Text('Reader'),
                 elevation: 10,
                 backgroundColor: Colors.white70,
                 actions: [
                   IconButton(
                     icon: const Icon(Icons.search),
-                    onPressed: () {
-                      controller
-                          .loadRequest(Uri.parse('https://www.google.com/'));
-                    },
+                    onPressed: () => showUriInput(context),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.refresh),
-                    onPressed: reload,
+                    icon: const Icon(Icons.bookmark),
+                    onPressed: () => bookmarkHelper.openBookmark(context),
                   ),
                 ],
               ),
@@ -127,28 +158,13 @@ class _WebViewExampleState extends State<WebViewExample> {
         child: ListView(
           children: [
             ListTile(
-              title: const Text('Open Bookmark'),
-              onTap: () {
-                Navigator.pop(context);
-                bookmarkHelper.openBookmark(context);
-              },
+              title: const Text('重新整理'),
+              leading: const Icon(Icons.refresh),
+              onTap: reload,
             ),
             ListTile(
-              title: const Text('Add Bookmark'),
-              onTap: () {
-                Navigator.pop(context);
-                bookmarkHelper.addBookmark(context);
-              },
-            ),
-            ListTile(
-              title: const Text('Remove Bookmark'),
-              onTap: () {
-                Navigator.pop(context);
-                bookmarkHelper.removeBookmark(context);
-              },
-            ),
-            ListTile(
-              title: const Text('Go To Top'),
+              title: const Text('回到頁面頂端'),
+              leading: const Icon(Icons.arrow_upward),
               onTap: () {
                 Navigator.pop(context);
                 controller.runJavaScript('''
@@ -161,7 +177,44 @@ class _WebViewExampleState extends State<WebViewExample> {
               },
             ),
             ListTile(
-              title: const Text('Settings'),
+              title: const Text('上一頁'),
+              leading: const Icon(Icons.arrow_back),
+              onTap: () {
+                Navigator.pop(context);
+                controller.canGoBack().then((canGoBack) {
+                  if (canGoBack) {
+                    controller.goBack();
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('No more pages.'),
+                      ),
+                    );
+                  }
+                });
+              },
+            ),
+            ListTile(
+              title: const Text('下一頁'),
+              leading: const Icon(Icons.arrow_forward),
+              onTap: () {
+                Navigator.pop(context);
+                controller.canGoForward().then((canGoForward) {
+                  if (canGoForward) {
+                    controller.goForward();
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('No more pages.'),
+                      ),
+                    );
+                  }
+                });
+              },
+            ),
+            ListTile(
+              title: const Text('設定'),
+              leading: const Icon(Icons.settings),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.push(
@@ -177,6 +230,7 @@ class _WebViewExampleState extends State<WebViewExample> {
       ),
       floatingActionButton: FloatingActionButton(
         child: Icon(playing ? Icons.pause : Icons.play_arrow),
+        tooltip: playing ? '暫停' : '播放',
         onPressed: () => setState(() {
           playing = !playing;
           showAppBar = !playing;

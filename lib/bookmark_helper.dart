@@ -18,7 +18,7 @@ class BookmarkHelper {
         final List<Bookmark> bookmarks =
             data.map((e) => Bookmark.fromString(e)).toList();
         return AlertDialog(
-          title: const Text('Bookmarks'),
+          title: const Text('書籤'),
           content: SizedBox(
             width: double.maxFinite,
             height: 300,
@@ -27,8 +27,16 @@ class BookmarkHelper {
               itemBuilder: (context, index) {
                 final bookmark = bookmarks[index];
                 return ListTile(
+                  key: ValueKey('$bookmark-$index'),
                   title: Text(bookmark.title),
                   subtitle: Text(bookmark.url),
+                  leading: InkWell(
+                    child: const Icon(Icons.close),
+                    onTap: () {
+                      removeBookmark(context);
+                      Navigator.pop(dialogContext);
+                    },
+                  ),
                   onTap: () {
                     controller.loadRequest(Uri.parse(bookmark.url));
                     Navigator.pop(dialogContext);
@@ -37,6 +45,21 @@ class BookmarkHelper {
               },
             ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+              },
+              child: const Text('關閉'),
+            ),
+            TextButton(
+              onPressed: () {
+                addBookmark(context);
+                Navigator.pop(dialogContext);
+              },
+              child: const Text('新增書籤'),
+            ),
+          ],
         );
       },
     );

@@ -13,7 +13,7 @@ class UserSettings extends StatelessWidget {
           (BuildContext context, AsyncSnapshot<SharedPreferences> snapshot) {
         return Scaffold(
           appBar: AppBar(
-            title: const Text('Settings'),
+            title: const Text('設定'),
           ),
           body: Builder(
             builder: (BuildContext context) {
@@ -52,8 +52,8 @@ class _UserSettingsBodyState extends State<UserSettingsBody> {
     return ListView(
       children: [
         ListTile(
-          title: const Text('Scroll Interval'),
-          subtitle: const Text('Time between scrolls in milliseconds'),
+          title: const Text('捲動時間間隔'),
+          subtitle: const Text('每次捲動的時間間隔，單位為毫秒'),
           trailing: SizedBox(
             width: 100,
             child: TextField(
@@ -71,8 +71,8 @@ class _UserSettingsBodyState extends State<UserSettingsBody> {
           ),
         ),
         ListTile(
-          title: const Text('Scroll Sensitivity'),
-          subtitle: const Text('How far you need to scroll to change page'),
+          title: const Text('捲動幅度'),
+          subtitle: const Text('每次捲動的幅度，預設為 800'),
           trailing: SizedBox(
             width: 100,
             child: TextField(
