@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:reader_app/bookmark_helper.dart';
 import 'package:reader_app/model/scroll.dart';
 import 'package:reader_app/user_settings.dart';
+import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -11,7 +12,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 void main() {
   return runApp(
     MaterialApp(
-      home: const WebViewExample(),
+      home: const AppMain(),
       theme: ThemeData(
         useMaterial3: true,
       ),
@@ -19,14 +20,15 @@ void main() {
   );
 }
 
-class WebViewExample extends StatefulWidget {
-  const WebViewExample({super.key});
+class AppMain extends StatefulWidget {
+  const AppMain({super.key});
 
   @override
-  State<WebViewExample> createState() => _WebViewExampleState();
+  State<AppMain> createState() => _AppMainState();
 }
 
-class _WebViewExampleState extends State<WebViewExample> {
+class _AppMainState extends State<AppMain> {
+  StreamSubscription? _intentDataStreamSubscription;
   late final WebViewController controller;
   late final SharedPreferences prefs;
   late final BookmarkHelper bookmarkHelper;
@@ -110,6 +112,7 @@ class _WebViewExampleState extends State<WebViewExample> {
             // Update loading bar.
           },
           onPageStarted: (String url) {
+            debugPrint('Page started loading: $url');
             prefs.setString('lastUri', url);
           },
           onPageFinished: (String url) {
@@ -125,6 +128,19 @@ class _WebViewExampleState extends State<WebViewExample> {
         ),
       );
 
+    // subscribe to share intent
+    _intentDataStreamSubscription =
+        ReceiveSharingIntent.getTextStream().listen((String value) {
+      controller.loadRequest(Uri.parse(value));
+    });
+
+    // handle shared text on app start on Android
+    ReceiveSharingIntent.getInitialText().then((String? value) {
+      if (value != null) {
+        controller.loadRequest(Uri.parse(value));
+      }
+    });
+
     if (scroll == null) {
       SharedPreferences.getInstance().then((prefs) {
         setState(() {
@@ -136,6 +152,12 @@ class _WebViewExampleState extends State<WebViewExample> {
         });
       });
     }
+  }
+
+  @override
+  void dispose() {
+    _intentDataStreamSubscription?.cancel();
+    super.dispose();
   }
 
   @override
@@ -241,7 +263,8 @@ class _WebViewExampleState extends State<WebViewExample> {
                 controller.currentUrl().then((uri) {
                   if (uri == null) return;
                   try {
-                    launchUrl(Uri.parse(uri), mode: LaunchMode.externalApplication);
+                    launchUrl(Uri.parse(uri),
+                        mode: LaunchMode.externalApplication);
                   } catch (e) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
