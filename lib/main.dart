@@ -5,6 +5,7 @@ import 'package:reader_app/bookmark_helper.dart';
 import 'package:reader_app/model/scroll.dart';
 import 'package:reader_app/user_settings.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 void main() {
@@ -33,10 +34,7 @@ class _WebViewExampleState extends State<WebViewExample> {
   bool playing = false;
   bool showAppBar = true;
   bool activeScrollListener = true;
-
-  void loadRequest(String uri) {
-    controller.loadRequest(Uri.parse(uri));
-  }
+  String? title;
 
   void scrolling() {
     if (!playing || scroll == null) return;
@@ -54,11 +52,20 @@ class _WebViewExampleState extends State<WebViewExample> {
     controller.reload();
   }
 
-  void showUriInput(BuildContext context) async {
+  void setTitle() {
+    controller.getTitle().then((title) {
+      setState(() {
+        this.title = title;
+      });
+    });
+  }
+
+  void showUriInput(BuildContext context, String oriUri) async {
     final String? url = await showDialog<String?>(
       context: context,
       builder: (dialogContext) {
         final TextEditingController inputCtrl = TextEditingController();
+        inputCtrl.text = oriUri;
         return AlertDialog(
           title: const Text('輸入 URL'),
           content: TextField(
@@ -102,8 +109,12 @@ class _WebViewExampleState extends State<WebViewExample> {
           onProgress: (int progress) {
             // Update loading bar.
           },
-          onPageStarted: (String url) {},
-          onPageFinished: (String url) {},
+          onPageStarted: (String url) {
+            prefs.setString('lastUri', url);
+          },
+          onPageFinished: (String url) {
+            setTitle();
+          },
           onWebResourceError: (WebResourceError error) {},
           onNavigationRequest: (NavigationRequest request) {
             if (request.url.startsWith('https://www.youtube.com/')) {
@@ -112,8 +123,7 @@ class _WebViewExampleState extends State<WebViewExample> {
             return NavigationDecision.navigate;
           },
         ),
-      )
-      ..loadRequest(Uri.parse('https://www.google.com/'));
+      );
 
     if (scroll == null) {
       SharedPreferences.getInstance().then((prefs) {
@@ -121,6 +131,8 @@ class _WebViewExampleState extends State<WebViewExample> {
           this.prefs = prefs;
           bookmarkHelper = BookmarkHelper(controller, prefs);
           scroll = Scroll(prefs);
+          controller.loadRequest(Uri.parse(
+              prefs.getString('lastUri') ?? 'https://www.google.com/'));
         });
       });
     }
@@ -138,10 +150,19 @@ class _WebViewExampleState extends State<WebViewExample> {
               child: AppBar(
                 elevation: 10,
                 backgroundColor: Colors.white70,
+                title: Text(
+                  title ?? '',
+                  style: const TextStyle(fontSize: 12.0),
+                ),
                 actions: [
                   IconButton(
                     icon: const Icon(Icons.search),
-                    onPressed: () => showUriInput(context),
+                    onPressed: () {
+                      controller.currentUrl().then((uri) {
+                        if (uri == null) return;
+                        showUriInput(context, uri);
+                      });
+                    },
                   ),
                   IconButton(
                     icon: const Icon(Icons.bookmark),
@@ -213,6 +234,25 @@ class _WebViewExampleState extends State<WebViewExample> {
               },
             ),
             ListTile(
+              title: const Text('以其他應用程式開啟'),
+              leading: const Icon(Icons.open_in_new),
+              onTap: () {
+                Navigator.pop(context);
+                controller.currentUrl().then((uri) {
+                  if (uri == null) return;
+                  try {
+                    launchUrl(Uri.parse(uri), mode: LaunchMode.externalApplication);
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('無法開啟連結'),
+                      ),
+                    );
+                  }
+                });
+              },
+            ),
+            ListTile(
               title: const Text('設定'),
               leading: const Icon(Icons.settings),
               onTap: () {
@@ -229,7 +269,6 @@ class _WebViewExampleState extends State<WebViewExample> {
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        child: Icon(playing ? Icons.pause : Icons.play_arrow),
         tooltip: playing ? '暫停' : '播放',
         onPressed: () => setState(() {
           playing = !playing;
@@ -238,6 +277,7 @@ class _WebViewExampleState extends State<WebViewExample> {
             scrolling();
           }
         }),
+        child: Icon(playing ? Icons.pause : Icons.play_arrow),
       ),
     );
   }

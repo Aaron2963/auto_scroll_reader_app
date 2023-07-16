@@ -9,6 +9,7 @@ class Bookmark {
     return Bookmark(cts[0], cts.sublist(1).join('\n'));
   }
 
+  @override
   toString() {
     return '$title\n$url';
   }
